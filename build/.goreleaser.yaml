@@ -1,0 +1,125 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+
+project_name: myproject
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod verify
+builds:
+  - id: linux
+    binary: app
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm
+    goarm:
+      - "7"
+    ldflags:
+      - -s # -s and -w reduce binary size, but prevent debugging (not necessary for production build)
+      - -w
+  - id: windows
+    binary: app
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - windows
+    goarch:
+      - amd64
+      - arm
+    goarm:
+      - "7"
+    ldflags:
+      - -s
+      - -w
+
+dockers:
+  - use: buildx
+    image_templates:
+      - "ghcr.io/stnokott/{{ .ProjectName }}:{{ .Version }}-amd64"
+      - "ghcr.io/stnokott/{{ .ProjectName }}:latest-amd64"
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--pull"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--platform=linux/amd64"
+  - use: buildx
+    image_templates:
+      - "ghcr.io/stnokott/{{ .ProjectName }}:{{ .Version }}-armv7"
+      - "ghcr.io/stnokott/{{ .ProjectName }}:latest-armv7"
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--pull"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--platform=linux/arm/7"
+
+docker_manifests:
+  - name_template: "ghcr.io/stnokott/{{ .ProjectName }}:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/stnokott/{{ .ProjectName }}:{{ .Version }}-amd64"
+      - "ghcr.io/stnokott/{{ .ProjectName }}:latest-amd64"
+      - "ghcr.io/stnokott/{{ .ProjectName }}:{{ .Version }}-armv7"
+      - "ghcr.io/stnokott/{{ .ProjectName }}:latest-armv7"
+
+changelog:
+  sort: asc
+  abbrev: -1
+  use: github
+  filters:
+    exclude:
+      - "^style"
+      - "^test"
+      - "^chore"
+      - "\\(dev\\)"
+      - "^Merge"
+
+  groups:
+    - title: Features
+      regexp: "^feat"
+      order: 0
+    - title: Bug Fixes
+      regexp: "^fix"
+      order: 1
+    - title: Documentation
+      regexp: "^docs"
+      order: 4
+    - title: Refactor
+      regexp: "^refactor"
+      order: 3
+    - title: Performance
+      regexp: "^perf"
+      order: 2
+    - title: Build
+      regexp: "^build"
+      order: 5
+    - title: Pipeline
+      regexp: "^ci"
+      order: 6
+    - title: Others
+      order: 999
+
+archives:
+  - id: linux
+    builds:
+      - linux
+    format: tar.gz
+  - id: windows
+    builds:
+      - windows
+    format: zip
+
+release:
+  target_commitish: "{{ .Commit }}"
+  github:
+    owner: stnokott
+    name: "{{ .ProjectName }}"
+  name_template: "v{{ .Version }}"

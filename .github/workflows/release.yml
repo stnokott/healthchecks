@@ -6,11 +6,16 @@ on:
       - "v*"
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 jobs:
-  release:
-    uses: ./.github/workflows/release_generic.yml
-    with:
-      snapshot: false
+  index-package:
+    name: Index Package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v5.0.1
+        with:
+          go-version-file: "go.mod"
+          cache: false
+      - name: go list
+        run: GOPROXY=proxy.golang.org go list -m github.com/${{ github.repository }}@${{ github.ref_name }}

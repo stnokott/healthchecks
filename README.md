@@ -1,3 +1,7 @@
+[![Go Reference](https://pkg.go.dev/badge/github.com/stnokott/healthchecks.svg)](https://pkg.go.dev/github.com/stnokott/healthchecks)
+![GitHub Release](https://img.shields.io/github/v/release/stnokott/healthchecks)
+
+
 # `healthchecks` - Wrapper for [healthchecks.io](https://healthchecks.io)
 
 Allows simple signalling of statuses to [healthchecks.io](https://healthchecks.io).

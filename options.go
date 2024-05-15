@@ -17,7 +17,7 @@ func defaultOptions() *options {
 	}
 }
 
-func fromDefaults(opts []Option) (*options, error) {
+func optsFromDefaults(opts []Option) (*options, error) {
 	options := defaultOptions()
 	for _, o := range opts {
 		if err := o.apply(options); err != nil {
@@ -48,7 +48,7 @@ func (u urlOption) apply(opts *options) error {
 
 // WithURL overrides the default URL https://hc-ping.com.
 //
-// Format for u should be (http/https)://(host).
+// The format should be http[s]://example.com[/suffix].
 func WithURL(u string) Option {
 	return urlOption(u)
 }

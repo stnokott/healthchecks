@@ -13,10 +13,11 @@ func TestProject(t *testing.T) {
 		slug string
 	}
 	tests := []struct {
-		name    string
-		p       *Project
-		args    args
-		wantErr bool
+		name             string
+		p                *Project
+		serverPathPrefix string
+		args             args
+		wantErr          bool
 	}{
 		{
 			name: "ping key valid, slug valid",
@@ -24,6 +25,7 @@ func TestProject(t *testing.T) {
 				pingKey: _pingValid,
 				opts:    &options{},
 			},
+			serverPathPrefix: "",
 			args: args{
 				ctx:  context.Background(),
 				slug: _slugValid,
@@ -36,6 +38,7 @@ func TestProject(t *testing.T) {
 				pingKey: _pingValid,
 				opts:    &options{},
 			},
+			serverPathPrefix: "",
 			args: args{
 				ctx:  context.Background(),
 				slug: _slugInvalid,
@@ -48,19 +51,33 @@ func TestProject(t *testing.T) {
 				pingKey: _pingKeyInvalid,
 				opts:    &options{},
 			},
+			serverPathPrefix: "",
 			args: args{
 				ctx:  context.Background(),
 				slug: _slugValid,
 			},
 			wantErr: true,
 		},
+		{
+			name: "valid with path prefix",
+			p: &Project{
+				pingKey: _pingValid,
+				opts:    &options{},
+			},
+			serverPathPrefix: "/prefix",
+			args: args{
+				ctx:  context.Background(),
+				slug: _slugValid,
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(newMockMux())
+			server := httptest.NewServer(newMockMux(tt.serverPathPrefix))
 			defer server.Close()
 
-			tt.p.opts.RootURL = mustURL(server.URL)
+			tt.p.opts.RootURL = mustURL(server.URL + tt.serverPathPrefix)
 
 			if err := tt.p.Start(tt.args.ctx, tt.args.slug); (err != nil) != tt.wantErr {
 				t.Errorf("Project.Start() error = %v, wantErr %v", err, tt.wantErr)
@@ -81,10 +98,11 @@ func TestProjectSlug(t *testing.T) {
 		slug string
 	}
 	tests := []struct {
-		name    string
-		p       *Project
-		args    args
-		wantErr bool
+		name             string
+		p                *Project
+		serverPathPrefix string
+		args             args
+		wantErr          bool
 	}{
 		{
 			name: "ping key valid, slug valid",
@@ -92,6 +110,7 @@ func TestProjectSlug(t *testing.T) {
 				pingKey: _pingValid,
 				opts:    &options{},
 			},
+			serverPathPrefix: "",
 			args: args{
 				ctx:  context.Background(),
 				slug: _slugValid,
@@ -104,6 +123,7 @@ func TestProjectSlug(t *testing.T) {
 				pingKey: _pingValid,
 				opts:    &options{},
 			},
+			serverPathPrefix: "",
 			args: args{
 				ctx:  context.Background(),
 				slug: _slugInvalid,
@@ -116,19 +136,33 @@ func TestProjectSlug(t *testing.T) {
 				pingKey: _pingKeyInvalid,
 				opts:    &options{},
 			},
+			serverPathPrefix: "",
 			args: args{
 				ctx:  context.Background(),
 				slug: _slugValid,
 			},
 			wantErr: true,
 		},
+		{
+			name: "valid with path prefix",
+			p: &Project{
+				pingKey: _pingValid,
+				opts:    &options{},
+			},
+			serverPathPrefix: "/prefix",
+			args: args{
+				ctx:  context.Background(),
+				slug: _slugValid,
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(newMockMux())
+			server := httptest.NewServer(newMockMux(tt.serverPathPrefix))
 			defer server.Close()
 
-			tt.p.opts.RootURL = mustURL(server.URL)
+			tt.p.opts.RootURL = mustURL(server.URL + tt.serverPathPrefix)
 
 			notif := tt.p.Slug(tt.args.slug)
 			if err := notif.Start(tt.args.ctx); (err != nil) != tt.wantErr {
@@ -139,6 +173,75 @@ func TestProjectSlug(t *testing.T) {
 			}
 			if err := notif.Fail(tt.args.ctx); (err != nil) != tt.wantErr {
 				t.Errorf("Project.Slug(%s).Fail() error = %v, wantErr %v", err, tt.args.slug, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestFromURL(t *testing.T) {
+	server := httptest.NewServer(newMockMux(""))
+	defer server.Close()
+	serverPathPrefix := "/prefix"
+	serverWithPrefix := httptest.NewServer(newMockMux(serverPathPrefix))
+	defer serverWithPrefix.Close()
+
+	type args struct {
+		url  string
+		opts []Option
+	}
+	tests := []struct {
+		name                string
+		useServerPathPrefix bool
+		args                args
+		wantErrCreate       bool
+		wantErrRequest      bool
+	}{
+		{
+			name: "invalid URL",
+			args: args{
+				url: "\n",
+			},
+			wantErrCreate: true,
+		},
+		{
+			name: "valid UUID",
+			args: args{
+				url: server.URL + "/" + _uuidValid,
+			},
+			wantErrCreate:  false,
+			wantErrRequest: false,
+		},
+		{
+			name: "valid with path prefix",
+			args: args{
+				url: serverWithPrefix.URL + serverPathPrefix + "/" + _uuidValid,
+			},
+			wantErrCreate:  false,
+			wantErrRequest: false,
+		},
+		{
+			name: "not found",
+			args: args{
+				url: server.URL + "/foo",
+			},
+			wantErrCreate:  false,
+			wantErrRequest: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			notifier, err := FromURL(tt.args.url, tt.args.opts...)
+			if (err != nil) != tt.wantErrCreate {
+				t.Errorf("NewURL(%s) error = %v, wantErr %v", tt.args.url, err, tt.wantErrCreate)
+				return
+			}
+			if err != nil {
+				return
+			}
+
+			if err := notifier.Success(context.Background()); (err != nil) != tt.wantErrRequest {
+				t.Errorf("NewURL(%s).Success() error = %v, wantErr %v", tt.args.url, err, tt.wantErrRequest)
+				return
 			}
 		})
 	}

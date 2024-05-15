@@ -19,7 +19,7 @@ const (
 	_slugInvalid    = "bar"
 )
 
-func newMockMux() http.Handler {
+func newMockMux(pathPrefix string) http.Handler {
 	r := mux.NewRouter()
 
 	uuidHandler := func(w http.ResponseWriter, r *http.Request) {
@@ -51,13 +51,13 @@ func newMockMux() http.Handler {
 		fmt.Fprint(w, "invalid URL format")
 	}
 
-	r.HandleFunc("/{uuid}", uuidHandler)
-	r.HandleFunc("/{uuid}/start", uuidHandler)
-	r.HandleFunc("/{uuid}/fail", uuidHandler)
+	r.HandleFunc(pathPrefix+"/{uuid}", uuidHandler)
+	r.HandleFunc(pathPrefix+"/{uuid}/start", uuidHandler)
+	r.HandleFunc(pathPrefix+"/{uuid}/fail", uuidHandler)
 
-	r.HandleFunc("/{pingKey}/{slug}", pingKeyHandler)
-	r.HandleFunc("/{pingKey}/{slug}/start", pingKeyHandler)
-	r.HandleFunc("/{pingKey}/{slug}/fail", pingKeyHandler)
+	r.HandleFunc(pathPrefix+"/{pingKey}/{slug}", pingKeyHandler)
+	r.HandleFunc(pathPrefix+"/{pingKey}/{slug}/start", pingKeyHandler)
+	r.HandleFunc(pathPrefix+"/{pingKey}/{slug}/fail", pingKeyHandler)
 
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(400)
@@ -73,80 +73,88 @@ func TestRequest(t *testing.T) {
 		path []string
 	}
 	tests := []struct {
-		name       string
-		args       args
-		operations []string
-		wantErr    bool
+		name             string
+		operations       []string
+		serverPathPrefix string
+		args             args
+		wantErr          bool
 	}{
 		{
-			name: "uuid valid",
+			name:             "uuid valid",
+			operations:       []string{"", "/start", "/fail"},
+			serverPathPrefix: "",
 			args: args{
 				opts: &options{},
 				path: []string{"/", _uuidValid},
 			},
-			operations: []string{"", "/start", "/fail"},
-			wantErr:    false,
+			wantErr: false,
 		},
 		{
-			name: "uuid invalid",
+			name:             "uuid invalid",
+			operations:       []string{""},
+			serverPathPrefix: "",
 			args: args{
 				opts: &options{},
 				path: []string{"/", _uuidInvalid},
 			},
-			operations: []string{""},
-			wantErr:    true,
+			wantErr: true,
 		},
 		{
-			name: "ping key valid, slug valid",
+			name:             "ping key valid, slug valid",
+			operations:       []string{"", "/start", "/fail"},
+			serverPathPrefix: "",
 			args: args{
 				opts: &options{},
 				path: []string{"/", _pingValid, "/", _slugValid},
 			},
-			operations: []string{"", "/start", "/fail"},
-			wantErr:    false,
+			wantErr: false,
 		},
 		{
-			name: "ping key valid, slug invalid",
+			name:             "ping key valid, slug invalid",
+			operations:       []string{""},
+			serverPathPrefix: "",
 			args: args{
 				opts: &options{},
 				path: []string{"/", _pingValid, "/", _slugInvalid},
 			},
-			operations: []string{""},
-			wantErr:    true,
+			wantErr: true,
 		},
 		{
-			name: "ping key invalid",
+			name:             "ping key invalid",
+			operations:       []string{""},
+			serverPathPrefix: "",
 			args: args{
 				opts: &options{},
 				path: []string{"/", _pingKeyInvalid, "/", _slugValid},
 			},
-			operations: []string{""},
-			wantErr:    true,
+			wantErr: true,
 		},
 		{
-			name: "path invalid",
+			name:             "path invalid",
+			operations:       []string{""},
+			serverPathPrefix: "",
 			args: args{
 				opts: &options{},
 				path: []string{"/", "invalid"},
 			},
-			operations: []string{""},
-			wantErr:    true,
+			wantErr: true,
 		},
 		{
-			name: "operation invalid",
+			name:             "operation invalid",
+			operations:       []string{"/bar"},
+			serverPathPrefix: "",
 			args: args{
 				opts: &options{},
 				path: []string{"/", _uuidValid},
 			},
-			operations: []string{"/bar"},
-			wantErr:    true,
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, op := range tt.operations {
 				t.Run(op, func(t *testing.T) {
-					server := httptest.NewServer(newMockMux())
+					server := httptest.NewServer(newMockMux(tt.serverPathPrefix))
 					defer server.Close()
 
 					tt.args.opts.RootURL = mustURL(server.URL)

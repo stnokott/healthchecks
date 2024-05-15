@@ -25,7 +25,7 @@ func TestUrlOption(t *testing.T) {
 		},
 		{
 			name:     "invalid",
-			opt:      "foo",
+			opt:      "\n",
 			args:     args{opts: &options{RootURL: nil}},
 			wantOpts: &options{RootURL: nil},
 			wantErr:  true,
@@ -35,6 +35,13 @@ func TestUrlOption(t *testing.T) {
 			opt:      "https://example.com",
 			args:     args{opts: &options{RootURL: nil}},
 			wantOpts: &options{RootURL: mustURL("https://example.com")},
+			wantErr:  false,
+		},
+		{
+			name:     "with path",
+			opt:      "https://example.com/health",
+			args:     args{opts: &options{RootURL: nil}},
+			wantOpts: &options{RootURL: mustURL("https://example.com/health")},
 			wantErr:  false,
 		},
 	}

@@ -3,6 +3,8 @@ package healthchecks
 
 import (
 	"context"
+	"fmt"
+	"net/url"
 )
 
 // Project organizes multiple checks in a common project.
@@ -18,7 +20,7 @@ type Project struct {
 // Sending signals via a project requires the project's "ping key" and the check's slug.
 // The ping key can be created under your project's settings.
 func NewProject(pingKey string, opts ...Option) (*Project, error) {
-	options, err := fromDefaults(opts)
+	options, err := optsFromDefaults(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +70,7 @@ func (p *Project) Slug(slug string) Notifier {
 // compile-time interface implementation check
 var _ Notifier = (*Check)(nil)
 
-// Check is an individual check, either obtained via [NewUUID].
+// Check is an individual check, either obtained via [NewUUID] or [Project.Slug] (via [NewProject]).
 //
 // It implements [Notifier].
 type Check struct {
@@ -80,13 +82,39 @@ type Check struct {
 //
 // The UUID is in the format xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx.
 func NewUUID(uuid string, opts ...Option) (*Check, error) {
-	options, err := fromDefaults(opts)
+	options, err := optsFromDefaults(opts)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Check{
 		path: uuid,
+		opts: options,
+	}, nil
+}
+
+// FromURL constructs a new Notifier from the URL of a single (UUID-based) check.
+//
+// The URL should be in the format http(s)://example.com/uuid.
+//
+// Note that any option which overrides the URL will be ignored.
+func FromURL(u string, opts ...Option) (Notifier, error) {
+	parsed, err := url.Parse(u)
+	if err != nil {
+		return nil, fmt.Errorf("parsing URL: %w", err)
+	}
+
+	// apply options
+	options, err := optsFromDefaults(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	// override URL
+	options.RootURL, _ = url.Parse(parsed.Scheme + "://" + parsed.Host) //nolint:errcheck
+
+	return &Check{
+		path: parsed.Path,
 		opts: options,
 	}, nil
 }

@@ -3,17 +3,19 @@ package healthchecks
 import (
 	"fmt"
 	"net/url"
+	"time"
 )
 
-// TODO: timeout
 // TODO: HTTP client
 type options struct {
 	RootURL *url.URL
+	Timeout time.Duration
 }
 
 func defaultOptions() *options {
 	return &options{
 		RootURL: mustURL("https://hc-ping.com"),
+		Timeout: 10 * time.Second,
 	}
 }
 
@@ -31,6 +33,8 @@ func optsFromDefaults(opts []Option) (*options, error) {
 type Option interface {
 	apply(opts *options) error
 }
+
+var _ Option = urlOption("")
 
 type urlOption string
 
@@ -59,4 +63,23 @@ func mustURL(u string) *url.URL {
 		panic(err)
 	}
 	return parsed
+}
+
+var _ Option = timeoutOption(0)
+
+type timeoutOption time.Duration
+
+func (t timeoutOption) apply(opts *options) error {
+	if t < 0 {
+		return fmt.Errorf("timeout is %d, needs to be > 0", t)
+	}
+	opts.Timeout = time.Duration(t)
+	return nil
+}
+
+// WithTimeout sets the timeout for signalling requests (/start, ...).
+//
+// The default is 10s.
+func WithTimeout(t time.Duration) Option {
+	return timeoutOption(t)
 }

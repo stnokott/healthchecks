@@ -1,6 +1,7 @@
 package healthchecks
 
 import (
+	"net/http"
 	"reflect"
 	"testing"
 	"time"
@@ -72,25 +73,55 @@ func TestWithTimeout(t *testing.T) {
 		wantErr  bool
 	}{
 		{
-			name:     "valid",
-			timeout:  5 * time.Second,
-			args:     args{opts: &options{Timeout: 0}},
-			wantOpts: &options{Timeout: 5 * time.Second},
-			wantErr:  false,
+			name:    "valid",
+			timeout: 5 * time.Second,
+			args: args{opts: &options{HTTPClient: &http.Client{
+				Transport:     http.DefaultTransport,
+				CheckRedirect: http.DefaultClient.CheckRedirect,
+				Jar:           http.DefaultClient.Jar,
+				Timeout:       10 * time.Second,
+			}}},
+			wantOpts: &options{HTTPClient: &http.Client{
+				Transport:     http.DefaultTransport,
+				CheckRedirect: http.DefaultClient.CheckRedirect,
+				Jar:           http.DefaultClient.Jar,
+				Timeout:       5 * time.Second,
+			}},
+			wantErr: false,
 		},
 		{
-			name:     "zero",
-			timeout:  0 * time.Second,
-			args:     args{opts: &options{Timeout: 0}},
-			wantOpts: &options{Timeout: 0 * time.Second},
-			wantErr:  false,
+			name:    "zero",
+			timeout: 0 * time.Second,
+			args: args{opts: &options{HTTPClient: &http.Client{
+				Transport:     http.DefaultTransport,
+				CheckRedirect: http.DefaultClient.CheckRedirect,
+				Jar:           http.DefaultClient.Jar,
+				Timeout:       10 * time.Second,
+			}}},
+			wantOpts: &options{HTTPClient: &http.Client{
+				Transport:     http.DefaultTransport,
+				CheckRedirect: http.DefaultClient.CheckRedirect,
+				Jar:           http.DefaultClient.Jar,
+				Timeout:       0 * time.Second,
+			}},
+			wantErr: false,
 		},
 		{
-			name:     "negative",
-			timeout:  -1 * time.Second,
-			args:     args{opts: &options{Timeout: 0}},
-			wantOpts: &options{Timeout: 0},
-			wantErr:  true,
+			name:    "negative",
+			timeout: -1 * time.Second,
+			args: args{opts: &options{HTTPClient: &http.Client{
+				Transport:     http.DefaultTransport,
+				CheckRedirect: http.DefaultClient.CheckRedirect,
+				Jar:           http.DefaultClient.Jar,
+				Timeout:       10 * time.Second,
+			}}},
+			wantOpts: &options{HTTPClient: &http.Client{
+				Transport:     http.DefaultTransport,
+				CheckRedirect: http.DefaultClient.CheckRedirect,
+				Jar:           http.DefaultClient.Jar,
+				Timeout:       10 * time.Second,
+			}},
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
@@ -102,6 +133,91 @@ func TestWithTimeout(t *testing.T) {
 			}
 			if !reflect.DeepEqual(tt.args.opts, tt.wantOpts) {
 				t.Errorf("WithTimeout(%s).apply() result mismatch:\ngot =  %#v\nwant = %#v", tt.timeout, tt.args.opts, tt.wantOpts)
+			}
+		})
+	}
+}
+
+func TestWithHTTPClient(t *testing.T) {
+	type args struct {
+		opts *options
+	}
+	tests := []struct {
+		name     string
+		client   *http.Client
+		args     args
+		wantOpts *options
+		wantErr  bool
+	}{
+		{
+			name: "valid",
+			client: &http.Client{
+				Transport:     http.DefaultTransport,
+				CheckRedirect: http.DefaultClient.CheckRedirect,
+				Jar:           http.DefaultClient.Jar,
+				Timeout:       999 * time.Second,
+			},
+			args: args{opts: &options{HTTPClient: &http.Client{
+				Transport:     http.DefaultTransport,
+				CheckRedirect: http.DefaultClient.CheckRedirect,
+				Jar:           http.DefaultClient.Jar,
+				Timeout:       10 * time.Second,
+			}}},
+			wantOpts: &options{HTTPClient: &http.Client{
+				Transport:     http.DefaultTransport,
+				CheckRedirect: http.DefaultClient.CheckRedirect,
+				Jar:           http.DefaultClient.Jar,
+				Timeout:       999 * time.Second,
+			}},
+			wantErr: false,
+		},
+		{
+			name: "partially nil",
+			client: &http.Client{
+				Transport: http.DefaultTransport,
+				Timeout:   123 * time.Second,
+			},
+			args: args{opts: &options{HTTPClient: &http.Client{
+				Transport:     http.DefaultTransport,
+				CheckRedirect: http.DefaultClient.CheckRedirect,
+				Jar:           http.DefaultClient.Jar,
+				Timeout:       10 * time.Second,
+			}}},
+			wantOpts: &options{HTTPClient: &http.Client{
+				Transport:     http.DefaultTransport,
+				CheckRedirect: nil,
+				Jar:           nil,
+				Timeout:       123 * time.Second,
+			}},
+			wantErr: false,
+		},
+		{
+			name:   "nil",
+			client: nil,
+			args: args{opts: &options{HTTPClient: &http.Client{
+				Transport:     http.DefaultTransport,
+				CheckRedirect: http.DefaultClient.CheckRedirect,
+				Jar:           http.DefaultClient.Jar,
+				Timeout:       10 * time.Second,
+			}}},
+			wantOpts: &options{HTTPClient: &http.Client{
+				Transport:     http.DefaultTransport,
+				CheckRedirect: http.DefaultClient.CheckRedirect,
+				Jar:           http.DefaultClient.Jar,
+				Timeout:       10 * time.Second,
+			}},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			option := WithHTTPClient(tt.client)
+
+			if err := option.apply(tt.args.opts); (err != nil) != tt.wantErr {
+				t.Errorf("WithHTTPClient().apply() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !reflect.DeepEqual(tt.args.opts, tt.wantOpts) {
+				t.Errorf("WithHTTPClient().apply() result mismatch:\ngot =  %#v\nwant = %#v", tt.args.opts, tt.wantOpts)
 			}
 		})
 	}

@@ -15,7 +15,7 @@ func request(ctx context.Context, opts *options, path ...string) error {
 		return fmt.Errorf("creating request: %w", err)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := opts.HTTPClient.Do(req)
 	if err != nil {
 		return err
 	}

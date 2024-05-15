@@ -84,7 +84,7 @@ func TestRequest(t *testing.T) {
 			operations:       []string{"", "/start", "/fail"},
 			serverPathPrefix: "",
 			args: args{
-				opts: &options{},
+				opts: &options{HTTPClient: http.DefaultClient},
 				path: []string{"/", _uuidValid},
 			},
 			wantErr: false,
@@ -94,7 +94,7 @@ func TestRequest(t *testing.T) {
 			operations:       []string{""},
 			serverPathPrefix: "",
 			args: args{
-				opts: &options{},
+				opts: &options{HTTPClient: http.DefaultClient},
 				path: []string{"/", _uuidInvalid},
 			},
 			wantErr: true,
@@ -104,7 +104,7 @@ func TestRequest(t *testing.T) {
 			operations:       []string{"", "/start", "/fail"},
 			serverPathPrefix: "",
 			args: args{
-				opts: &options{},
+				opts: &options{HTTPClient: http.DefaultClient},
 				path: []string{"/", _pingValid, "/", _slugValid},
 			},
 			wantErr: false,
@@ -114,7 +114,7 @@ func TestRequest(t *testing.T) {
 			operations:       []string{""},
 			serverPathPrefix: "",
 			args: args{
-				opts: &options{},
+				opts: &options{HTTPClient: http.DefaultClient},
 				path: []string{"/", _pingValid, "/", _slugInvalid},
 			},
 			wantErr: true,
@@ -124,7 +124,7 @@ func TestRequest(t *testing.T) {
 			operations:       []string{""},
 			serverPathPrefix: "",
 			args: args{
-				opts: &options{},
+				opts: &options{HTTPClient: http.DefaultClient},
 				path: []string{"/", _pingKeyInvalid, "/", _slugValid},
 			},
 			wantErr: true,
@@ -134,7 +134,7 @@ func TestRequest(t *testing.T) {
 			operations:       []string{""},
 			serverPathPrefix: "",
 			args: args{
-				opts: &options{},
+				opts: &options{HTTPClient: http.DefaultClient},
 				path: []string{"/", "invalid"},
 			},
 			wantErr: true,
@@ -144,7 +144,7 @@ func TestRequest(t *testing.T) {
 			operations:       []string{"/bar"},
 			serverPathPrefix: "",
 			args: args{
-				opts: &options{},
+				opts: &options{HTTPClient: http.DefaultClient},
 				path: []string{"/", _uuidValid},
 			},
 			wantErr: true,

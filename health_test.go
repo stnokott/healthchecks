@@ -3,6 +3,7 @@ package healthchecks
 
 import (
 	"context"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 )
@@ -11,6 +12,7 @@ func TestProject(t *testing.T) {
 	type args struct {
 		ctx  context.Context
 		slug string
+		msg  string
 	}
 	tests := []struct {
 		name             string
@@ -23,7 +25,7 @@ func TestProject(t *testing.T) {
 			name: "ping key valid, slug valid",
 			p: &Project{
 				pingKey: _pingValid,
-				opts:    &options{},
+				opts:    &options{HTTPClient: http.DefaultClient},
 			},
 			serverPathPrefix: "",
 			args: args{
@@ -36,7 +38,7 @@ func TestProject(t *testing.T) {
 			name: "ping key valid, slug invalid",
 			p: &Project{
 				pingKey: _pingValid,
-				opts:    &options{},
+				opts:    &options{HTTPClient: http.DefaultClient},
 			},
 			serverPathPrefix: "",
 			args: args{
@@ -49,7 +51,7 @@ func TestProject(t *testing.T) {
 			name: "ping key invalid",
 			p: &Project{
 				pingKey: _pingKeyInvalid,
-				opts:    &options{},
+				opts:    &options{HTTPClient: http.DefaultClient},
 			},
 			serverPathPrefix: "",
 			args: args{
@@ -62,12 +64,26 @@ func TestProject(t *testing.T) {
 			name: "valid with path prefix",
 			p: &Project{
 				pingKey: _pingValid,
-				opts:    &options{},
+				opts:    &options{HTTPClient: http.DefaultClient},
 			},
 			serverPathPrefix: "/prefix",
 			args: args{
 				ctx:  context.Background(),
 				slug: _slugValid,
+			},
+			wantErr: false,
+		},
+		{
+			name: "with body",
+			p: &Project{
+				pingKey: _pingValid,
+				opts:    &options{HTTPClient: http.DefaultClient},
+			},
+			serverPathPrefix: "",
+			args: args{
+				ctx:  context.Background(),
+				slug: _slugValid,
+				msg:  "Fuzz Buzz",
 			},
 			wantErr: false,
 		},
@@ -88,6 +104,11 @@ func TestProject(t *testing.T) {
 			if err := tt.p.Fail(tt.args.ctx, tt.args.slug); (err != nil) != tt.wantErr {
 				t.Errorf("Project.Fail() error = %v, wantErr %v", err, tt.wantErr)
 			}
+			if tt.args.msg != "" {
+				if err := tt.p.Log(tt.args.ctx, tt.args.slug, tt.args.msg); (err != nil) != tt.wantErr {
+					t.Errorf("Project.Log(%s) error = %v, wantErr %v", tt.args.msg, err, tt.wantErr)
+				}
+			}
 		})
 	}
 }
@@ -96,6 +117,7 @@ func TestProjectSlug(t *testing.T) {
 	type args struct {
 		ctx  context.Context
 		slug string
+		msg  string
 	}
 	tests := []struct {
 		name             string
@@ -108,7 +130,7 @@ func TestProjectSlug(t *testing.T) {
 			name: "ping key valid, slug valid",
 			p: &Project{
 				pingKey: _pingValid,
-				opts:    &options{},
+				opts:    &options{HTTPClient: http.DefaultClient},
 			},
 			serverPathPrefix: "",
 			args: args{
@@ -121,7 +143,7 @@ func TestProjectSlug(t *testing.T) {
 			name: "ping key valid, slug invalid",
 			p: &Project{
 				pingKey: _pingValid,
-				opts:    &options{},
+				opts:    &options{HTTPClient: http.DefaultClient},
 			},
 			serverPathPrefix: "",
 			args: args{
@@ -134,7 +156,7 @@ func TestProjectSlug(t *testing.T) {
 			name: "ping key invalid",
 			p: &Project{
 				pingKey: _pingKeyInvalid,
-				opts:    &options{},
+				opts:    &options{HTTPClient: http.DefaultClient},
 			},
 			serverPathPrefix: "",
 			args: args{
@@ -147,12 +169,26 @@ func TestProjectSlug(t *testing.T) {
 			name: "valid with path prefix",
 			p: &Project{
 				pingKey: _pingValid,
-				opts:    &options{},
+				opts:    &options{HTTPClient: http.DefaultClient},
 			},
 			serverPathPrefix: "/prefix",
 			args: args{
 				ctx:  context.Background(),
 				slug: _slugValid,
+			},
+			wantErr: false,
+		},
+		{
+			name: "witn body",
+			p: &Project{
+				pingKey: _pingValid,
+				opts:    &options{HTTPClient: http.DefaultClient},
+			},
+			serverPathPrefix: "",
+			args: args{
+				ctx:  context.Background(),
+				slug: _slugValid,
+				msg:  "Fuzz Buzz",
 			},
 			wantErr: false,
 		},
@@ -172,7 +208,12 @@ func TestProjectSlug(t *testing.T) {
 				t.Errorf("Project.Slug(%s).Success() error = %v, wantErr %v", tt.args.slug, err, tt.wantErr)
 			}
 			if err := notif.Fail(tt.args.ctx); (err != nil) != tt.wantErr {
-				t.Errorf("Project.Slug(%s).Fail() error = %v, wantErr %v", err, tt.args.slug, tt.wantErr)
+				t.Errorf("Project.Slug(%s).Fail() error = %v, wantErr %v", tt.args.slug, err, tt.wantErr)
+			}
+			if tt.args.msg != "" {
+				if err := notif.Log(tt.args.ctx, tt.args.msg); (err != nil) != tt.wantErr {
+					t.Errorf("Project.Slug(%s, %s).Log() error = %v, wantErr %v", tt.args.slug, tt.args.msg, err, tt.wantErr)
+				}
 			}
 		})
 	}

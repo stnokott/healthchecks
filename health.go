@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 )
 
 // Project organizes multiple checks in a common project.
@@ -39,24 +40,30 @@ type Notifier interface {
 	Success(ctx context.Context) error
 	// Fail sends the "fail" signal to the check.
 	Fail(ctx context.Context) error
+	// Log sends the "log" signal with the attached message to the check.
+	Log(ctx context.Context, msg string) error
 }
 
-// TODO: log https://healthchecks.io/docs/http_api/#log-uuid
 // TODO: exit status https://healthchecks.io/docs/http_api/#exitcode-uuid
 
 // Start sends the "start" signal to the project's check identified by slug.
 func (p *Project) Start(ctx context.Context, slug string) error {
-	return request(ctx, p.opts, p.pingKey, slug, "/start")
+	return request(ctx, p.opts, nil, p.pingKey, slug, "/start")
 }
 
 // Success sends the "success" signal to the project's check identified by slug.
 func (p *Project) Success(ctx context.Context, slug string) error {
-	return request(ctx, p.opts, p.pingKey, slug)
+	return request(ctx, p.opts, nil, p.pingKey, slug)
 }
 
 // Fail sends the "fail" signal to the project's check identified by slug.
 func (p *Project) Fail(ctx context.Context, slug string) error {
-	return request(ctx, p.opts, p.pingKey, slug, "/fail")
+	return request(ctx, p.opts, nil, p.pingKey, slug, "/fail")
+}
+
+// Log sends the "log" signal with the attached message to the project's check identified by slug.
+func (p *Project) Log(ctx context.Context, slug string, msg string) error {
+	return request(ctx, p.opts, strings.NewReader(msg), p.pingKey, slug, "/log")
 }
 
 // Slug creates a new [Notifier] for a check in this [Project], indentified by its slug.
@@ -121,15 +128,20 @@ func FromURL(u string, opts ...Option) (Notifier, error) {
 
 // Start sends the "start" signal to the check identified by its uuid.
 func (c *Check) Start(ctx context.Context) error {
-	return request(ctx, c.opts, c.path, "/start")
+	return request(ctx, c.opts, nil, c.path, "/start")
 }
 
 // Success sends the "success" signal to the check identified by its uuid.
 func (c *Check) Success(ctx context.Context) error {
-	return request(ctx, c.opts, c.path)
+	return request(ctx, c.opts, nil, c.path)
 }
 
 // Fail sends the "fail" signal to the check identified by its uuid.
 func (c *Check) Fail(ctx context.Context) error {
-	return request(ctx, c.opts, c.path, "/fail")
+	return request(ctx, c.opts, nil, c.path, "/fail")
+}
+
+// Log sends the "log" signal with the attached message to the check identified by its uuid.
+func (c *Check) Log(ctx context.Context, msg string) error {
+	return request(ctx, c.opts, strings.NewReader(msg), c.path, "/fail")
 }

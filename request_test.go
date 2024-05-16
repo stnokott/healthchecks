@@ -3,8 +3,10 @@ package healthchecks
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gorilla/mux"
@@ -23,6 +25,12 @@ func newMockMux(pathPrefix string) http.Handler {
 	r := mux.NewRouter()
 
 	uuidHandler := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" && r.Body == http.NoBody {
+			w.WriteHeader(400)
+			fmt.Fprint(w, "POST with empty body")
+			return
+		}
+
 		uuid := mux.Vars(r)["uuid"]
 		switch uuid {
 		case _uuidValid:
@@ -37,6 +45,12 @@ func newMockMux(pathPrefix string) http.Handler {
 	}
 
 	pingKeyHandler := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" && r.Body == http.NoBody {
+			w.WriteHeader(400)
+			fmt.Fprint(w, "POST with empty body")
+			return
+		}
+
 		vars := mux.Vars(r)
 		pingKey, slug := vars["pingKey"], vars["slug"]
 		if pingKey == _pingKeyInvalid || slug == _slugInvalid {
@@ -54,10 +68,12 @@ func newMockMux(pathPrefix string) http.Handler {
 	r.HandleFunc(pathPrefix+"/{uuid}", uuidHandler)
 	r.HandleFunc(pathPrefix+"/{uuid}/start", uuidHandler)
 	r.HandleFunc(pathPrefix+"/{uuid}/fail", uuidHandler)
+	r.HandleFunc(pathPrefix+"/{uuid}/log", uuidHandler)
 
 	r.HandleFunc(pathPrefix+"/{pingKey}/{slug}", pingKeyHandler)
 	r.HandleFunc(pathPrefix+"/{pingKey}/{slug}/start", pingKeyHandler)
 	r.HandleFunc(pathPrefix+"/{pingKey}/{slug}/fail", pingKeyHandler)
+	r.HandleFunc(pathPrefix+"/{pingKey}/{slug}/log", pingKeyHandler)
 
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(400)
@@ -70,6 +86,7 @@ func newMockMux(pathPrefix string) http.Handler {
 func TestRequest(t *testing.T) {
 	type args struct {
 		opts *options
+		body io.Reader
 		path []string
 	}
 	tests := []struct {
@@ -85,6 +102,7 @@ func TestRequest(t *testing.T) {
 			serverPathPrefix: "",
 			args: args{
 				opts: &options{HTTPClient: http.DefaultClient},
+				body: nil,
 				path: []string{"/", _uuidValid},
 			},
 			wantErr: false,
@@ -95,6 +113,7 @@ func TestRequest(t *testing.T) {
 			serverPathPrefix: "",
 			args: args{
 				opts: &options{HTTPClient: http.DefaultClient},
+				body: nil,
 				path: []string{"/", _uuidInvalid},
 			},
 			wantErr: true,
@@ -105,6 +124,7 @@ func TestRequest(t *testing.T) {
 			serverPathPrefix: "",
 			args: args{
 				opts: &options{HTTPClient: http.DefaultClient},
+				body: nil,
 				path: []string{"/", _pingValid, "/", _slugValid},
 			},
 			wantErr: false,
@@ -115,6 +135,7 @@ func TestRequest(t *testing.T) {
 			serverPathPrefix: "",
 			args: args{
 				opts: &options{HTTPClient: http.DefaultClient},
+				body: nil,
 				path: []string{"/", _pingValid, "/", _slugInvalid},
 			},
 			wantErr: true,
@@ -125,6 +146,7 @@ func TestRequest(t *testing.T) {
 			serverPathPrefix: "",
 			args: args{
 				opts: &options{HTTPClient: http.DefaultClient},
+				body: nil,
 				path: []string{"/", _pingKeyInvalid, "/", _slugValid},
 			},
 			wantErr: true,
@@ -135,6 +157,7 @@ func TestRequest(t *testing.T) {
 			serverPathPrefix: "",
 			args: args{
 				opts: &options{HTTPClient: http.DefaultClient},
+				body: nil,
 				path: []string{"/", "invalid"},
 			},
 			wantErr: true,
@@ -145,9 +168,21 @@ func TestRequest(t *testing.T) {
 			serverPathPrefix: "",
 			args: args{
 				opts: &options{HTTPClient: http.DefaultClient},
+				body: nil,
 				path: []string{"/", _uuidValid},
 			},
 			wantErr: true,
+		},
+		{
+			name:             "with body",
+			operations:       []string{"/log"},
+			serverPathPrefix: "",
+			args: args{
+				opts: &options{HTTPClient: http.DefaultClient},
+				body: strings.NewReader("Foo Bar"),
+				path: []string{"/", _uuidValid},
+			},
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
@@ -162,7 +197,7 @@ func TestRequest(t *testing.T) {
 					copy(path, tt.args.path)
 					path[len(path)-1] = op
 
-					if err := request(context.Background(), tt.args.opts, path...); (err != nil) != tt.wantErr {
+					if err := request(context.Background(), tt.args.opts, tt.args.body, path...); (err != nil) != tt.wantErr {
 						t.Errorf("request() error = %v, wantErr %v", err, tt.wantErr)
 					}
 				})

@@ -143,5 +143,5 @@ func (c *Check) Fail(ctx context.Context) error {
 
 // Log sends the "log" signal with the attached message to the check identified by its uuid.
 func (c *Check) Log(ctx context.Context, msg string) error {
-	return request(ctx, c.opts, strings.NewReader(msg), c.path, "/fail")
+	return request(ctx, c.opts, strings.NewReader(msg), c.path, "/log")
 }

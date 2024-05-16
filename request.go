@@ -11,13 +11,15 @@ func request(ctx context.Context, opts *options, body io.Reader, path ...string)
 	fullPath := opts.RootURL.JoinPath(path...)
 
 	req, err := newRequest(ctx, fullPath.String(), body)
+	// required for reliable sequential requests
+	req.Close = true
 	if err != nil {
 		return fmt.Errorf("creating request: %w", err)
 	}
 
 	resp, err := opts.HTTPClient.Do(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("requesting: %w", err)
 	}
 	defer func() {
 		_ = resp.Body.Close()

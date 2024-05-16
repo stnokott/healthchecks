@@ -1,0 +1,44 @@
+{
+	// See https://go.microsoft.com/fwlink/?LinkId=733558
+	// for the documentation about the tasks.json format
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Start test environment",
+			"type": "shell",
+			"command": "docker compose up -d",
+			"options": {
+				"cwd": "${workspaceFolder}/test"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Stop test environment",
+			"type": "shell",
+			"command": "docker compose down",
+			"options": {
+				"cwd": "${workspaceFolder}/test"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Create DB dump",
+			"detail": "Make sure the test environment is running beforehand",
+			"type": "shell",
+			"command": "docker compose exec db pg_dump -U postgres -d healthchecks > ./init/healthchecks_dump.sql",
+			"options": {
+				"cwd": "${workspaceFolder}/test",
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Run integration tests",
+			"type": "shell",
+			"command": "docker compose --profile test up --force-recreate --attach=code --exit-code-from=code",
+			"options": {
+				"cwd": "${workspaceFolder}/test",
+			},
+			"problemMatcher": "$go"
+		}
+	]
+}

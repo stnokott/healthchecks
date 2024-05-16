@@ -1,89 +1,24 @@
+//go:build integration
+
 package healthchecks
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"github.com/gorilla/mux"
 )
 
 const (
-	_uuidValid      = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 	_uuidInvalid    = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
-	_pingValid      = "abcdefgh"
 	_pingKeyInvalid = "ijklmnop"
-	_slugValid      = "foo"
 	_slugInvalid    = "bar"
 )
 
-func newMockMux(pathPrefix string) http.Handler {
-	r := mux.NewRouter()
-
-	uuidHandler := func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "POST" && r.Body == http.NoBody {
-			w.WriteHeader(400)
-			fmt.Fprint(w, "POST with empty body")
-			return
-		}
-
-		uuid := mux.Vars(r)["uuid"]
-		switch uuid {
-		case _uuidValid:
-			fmt.Fprint(w, "OK")
-		case _uuidInvalid:
-			// yes, the official healthchecks.io endpoint returns 200 when a UUID doesn't exist.
-			fmt.Fprint(w, "OK (not found)")
-		default:
-			w.WriteHeader(400)
-			fmt.Fprint(w, "invalid url format")
-		}
-	}
-
-	pingKeyHandler := func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "POST" && r.Body == http.NoBody {
-			w.WriteHeader(400)
-			fmt.Fprint(w, "POST with empty body")
-			return
-		}
-
-		vars := mux.Vars(r)
-		pingKey, slug := vars["pingKey"], vars["slug"]
-		if pingKey == _pingKeyInvalid || slug == _slugInvalid {
-			fmt.Fprint(w, "OK (not found)")
-			return
-		}
-		if pingKey == _pingValid && slug == _slugValid {
-			fmt.Fprint(w, "OK")
-			return
-		}
-		w.WriteHeader(400)
-		fmt.Fprint(w, "invalid URL format")
-	}
-
-	r.HandleFunc(pathPrefix+"/{uuid}", uuidHandler)
-	r.HandleFunc(pathPrefix+"/{uuid}/start", uuidHandler)
-	r.HandleFunc(pathPrefix+"/{uuid}/fail", uuidHandler)
-	r.HandleFunc(pathPrefix+"/{uuid}/log", uuidHandler)
-
-	r.HandleFunc(pathPrefix+"/{pingKey}/{slug}", pingKeyHandler)
-	r.HandleFunc(pathPrefix+"/{pingKey}/{slug}/start", pingKeyHandler)
-	r.HandleFunc(pathPrefix+"/{pingKey}/{slug}/fail", pingKeyHandler)
-	r.HandleFunc(pathPrefix+"/{pingKey}/{slug}/log", pingKeyHandler)
-
-	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(400)
-		fmt.Fprint(w, "invalid url format")
-	})
-
-	return r
-}
-
 func TestRequest(t *testing.T) {
+	config := configFromEnv()
+
 	type args struct {
 		opts *options
 		body io.Reader
@@ -101,9 +36,12 @@ func TestRequest(t *testing.T) {
 			operations:       []string{"", "/start", "/fail"},
 			serverPathPrefix: "",
 			args: args{
-				opts: &options{HTTPClient: http.DefaultClient},
+				opts: &options{
+					RootURL:    mustURL(config.URLPrefix),
+					HTTPClient: http.DefaultClient,
+				},
 				body: nil,
-				path: []string{"/", _uuidValid},
+				path: []string{"/", config.UUID},
 			},
 			wantErr: false,
 		},
@@ -112,7 +50,10 @@ func TestRequest(t *testing.T) {
 			operations:       []string{""},
 			serverPathPrefix: "",
 			args: args{
-				opts: &options{HTTPClient: http.DefaultClient},
+				opts: &options{
+					RootURL:    mustURL(config.URLPrefix),
+					HTTPClient: http.DefaultClient,
+				},
 				body: nil,
 				path: []string{"/", _uuidInvalid},
 			},
@@ -123,9 +64,12 @@ func TestRequest(t *testing.T) {
 			operations:       []string{"", "/start", "/fail"},
 			serverPathPrefix: "",
 			args: args{
-				opts: &options{HTTPClient: http.DefaultClient},
+				opts: &options{
+					RootURL:    mustURL(config.URLPrefix),
+					HTTPClient: http.DefaultClient,
+				},
 				body: nil,
-				path: []string{"/", _pingValid, "/", _slugValid},
+				path: []string{"/", config.PingKey, "/", config.Slug},
 			},
 			wantErr: false,
 		},
@@ -134,9 +78,12 @@ func TestRequest(t *testing.T) {
 			operations:       []string{""},
 			serverPathPrefix: "",
 			args: args{
-				opts: &options{HTTPClient: http.DefaultClient},
+				opts: &options{
+					RootURL:    mustURL(config.URLPrefix),
+					HTTPClient: http.DefaultClient,
+				},
 				body: nil,
-				path: []string{"/", _pingValid, "/", _slugInvalid},
+				path: []string{"/", config.PingKey, "/", _slugInvalid},
 			},
 			wantErr: true,
 		},
@@ -145,9 +92,12 @@ func TestRequest(t *testing.T) {
 			operations:       []string{""},
 			serverPathPrefix: "",
 			args: args{
-				opts: &options{HTTPClient: http.DefaultClient},
+				opts: &options{
+					RootURL:    mustURL(config.URLPrefix),
+					HTTPClient: http.DefaultClient,
+				},
 				body: nil,
-				path: []string{"/", _pingKeyInvalid, "/", _slugValid},
+				path: []string{"/", _pingKeyInvalid, "/", config.Slug},
 			},
 			wantErr: true,
 		},
@@ -156,7 +106,10 @@ func TestRequest(t *testing.T) {
 			operations:       []string{""},
 			serverPathPrefix: "",
 			args: args{
-				opts: &options{HTTPClient: http.DefaultClient},
+				opts: &options{
+					RootURL:    mustURL(config.URLPrefix),
+					HTTPClient: http.DefaultClient,
+				},
 				body: nil,
 				path: []string{"/", "invalid"},
 			},
@@ -167,9 +120,12 @@ func TestRequest(t *testing.T) {
 			operations:       []string{"/bar"},
 			serverPathPrefix: "",
 			args: args{
-				opts: &options{HTTPClient: http.DefaultClient},
+				opts: &options{
+					RootURL:    mustURL(config.URLPrefix),
+					HTTPClient: http.DefaultClient,
+				},
 				body: nil,
-				path: []string{"/", _uuidValid},
+				path: []string{"/", config.UUID},
 			},
 			wantErr: true,
 		},
@@ -178,9 +134,12 @@ func TestRequest(t *testing.T) {
 			operations:       []string{"/log"},
 			serverPathPrefix: "",
 			args: args{
-				opts: &options{HTTPClient: http.DefaultClient},
+				opts: &options{
+					RootURL:    mustURL(config.URLPrefix),
+					HTTPClient: http.DefaultClient,
+				},
 				body: strings.NewReader("Foo Bar"),
-				path: []string{"/", _uuidValid},
+				path: []string{"/", config.UUID},
 			},
 			wantErr: false,
 		},
@@ -189,10 +148,6 @@ func TestRequest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, op := range tt.operations {
 				t.Run(op, func(t *testing.T) {
-					server := httptest.NewServer(newMockMux(tt.serverPathPrefix))
-					defer server.Close()
-
-					tt.args.opts.RootURL = mustURL(server.URL)
 					path := make([]string, len(tt.args.path)+1)
 					copy(path, tt.args.path)
 					path[len(path)-1] = op

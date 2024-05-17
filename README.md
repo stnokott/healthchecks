@@ -1,5 +1,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/stnokott/healthchecks.svg)](https://pkg.go.dev/github.com/stnokott/healthchecks)
 ![GitHub Release](https://img.shields.io/github/v/release/stnokott/healthchecks)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/stnokott/healthchecks/test.yml?label=CI)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/stnokott/healthchecks/codeql.yml?label=CodeQL)
 
 
 # `healthchecks` - Wrapper for [healthchecks.io](https://healthchecks.io)

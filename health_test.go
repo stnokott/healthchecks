@@ -1,75 +1,78 @@
-// Package healthchecks is a wrapper around the healthchecks.io endpoints.
 package healthchecks
 
 import (
-	"context"
-	"net/http/httptest"
+	"reflect"
 	"testing"
 )
 
-func TestProject(t *testing.T) {
+func TestNewProject(t *testing.T) {
 	type args struct {
-		ctx  context.Context
-		slug string
+		pingKey string
+		opts    []Option
 	}
 	tests := []struct {
 		name    string
-		p       *Project
 		args    args
+		want    *Project
 		wantErr bool
 	}{
 		{
-			name: "ping key valid, slug valid",
-			p: &Project{
-				pingKey: _pingValid,
-				opts:    &options{},
-			},
+			name: "no options",
 			args: args{
-				ctx:  context.Background(),
-				slug: _slugValid,
+				pingKey: "ping key",
+				opts:    []Option{},
+			},
+			want: &Project{
+				pingKey: "ping key",
+				opts:    defaultOptions(),
 			},
 			wantErr: false,
 		},
 		{
-			name: "ping key valid, slug invalid",
-			p: &Project{
-				pingKey: _pingValid,
-				opts:    &options{},
-			},
+			name: "empty ping key",
 			args: args{
-				ctx:  context.Background(),
-				slug: _slugInvalid,
+				pingKey: "",
+				opts:    []Option{},
 			},
+			want:    nil,
 			wantErr: true,
 		},
 		{
-			name: "ping key invalid",
-			p: &Project{
-				pingKey: _pingKeyInvalid,
-				opts:    &options{},
-			},
+			name: "no ping key",
 			args: args{
-				ctx:  context.Background(),
-				slug: _slugValid,
+				pingKey: "",
+				opts:    []Option{},
 			},
+			want:    nil,
 			wantErr: true,
+		},
+		{
+			name: "with option",
+			args: args{
+				pingKey: "foo bar",
+				opts: []Option{
+					WithURL("https://example.com"),
+				},
+			},
+			want: &Project{
+				pingKey: "foo bar",
+				opts: &options{
+					RootURL:    mustURL("https://example.com"),
+					HTTPClient: defaultOptions().HTTPClient,
+				},
+			},
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(newMockMux())
-			defer server.Close()
-
-			tt.p.opts.RootURL = mustURL(server.URL)
-
-			if err := tt.p.Start(tt.args.ctx, tt.args.slug); (err != nil) != tt.wantErr {
-				t.Errorf("Project.Start() error = %v, wantErr %v", err, tt.wantErr)
+			got, err := NewProject(tt.args.pingKey, tt.args.opts...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NewProject() error = %v, wantErr %v", err, tt.wantErr)
+				return
 			}
-			if err := tt.p.Success(tt.args.ctx, tt.args.slug); (err != nil) != tt.wantErr {
-				t.Errorf("Project.Success() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if err := tt.p.Fail(tt.args.ctx, tt.args.slug); (err != nil) != tt.wantErr {
-				t.Errorf("Project.Fail() error = %v, wantErr %v", err, tt.wantErr)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("NewProject() = %#v, want %#v", got, tt.want)
 			}
 		})
 	}
@@ -77,68 +80,134 @@ func TestProject(t *testing.T) {
 
 func TestProjectSlug(t *testing.T) {
 	type args struct {
-		ctx  context.Context
 		slug string
 	}
 	tests := []struct {
+		name string
+		p    *Project
+		args args
+		want Notifier
+	}{
+		{
+			name: "valid",
+			p: &Project{
+				pingKey: "fooBar",
+				opts:    defaultOptions(),
+			},
+			args: args{slug: "sluggySlug"},
+			want: &Check{
+				path: "fooBar/sluggySlug",
+				opts: defaultOptions(),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.p.Slug(tt.args.slug); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Project.Slug() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNewUUID(t *testing.T) {
+	type args struct {
+		uuid string
+		opts []Option
+	}
+	tests := []struct {
 		name    string
-		p       *Project
 		args    args
+		want    *Check
 		wantErr bool
 	}{
 		{
-			name: "ping key valid, slug valid",
-			p: &Project{
-				pingKey: _pingValid,
-				opts:    &options{},
-			},
+			name: "valid",
 			args: args{
-				ctx:  context.Background(),
-				slug: _slugValid,
+				uuid: "abc-def",
+				opts: []Option{},
+			},
+			want: &Check{
+				path: "/abc-def",
+				opts: defaultOptions(),
 			},
 			wantErr: false,
 		},
 		{
-			name: "ping key valid, slug invalid",
-			p: &Project{
-				pingKey: _pingValid,
-				opts:    &options{},
-			},
+			name: "empty uuid",
 			args: args{
-				ctx:  context.Background(),
-				slug: _slugInvalid,
+				uuid: "",
+				opts: []Option{},
 			},
-			wantErr: true,
-		},
-		{
-			name: "ping key invalid",
-			p: &Project{
-				pingKey: _pingKeyInvalid,
-				opts:    &options{},
-			},
-			args: args{
-				ctx:  context.Background(),
-				slug: _slugValid,
-			},
+			want:    nil,
 			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(newMockMux())
-			defer server.Close()
-
-			tt.p.opts.RootURL = mustURL(server.URL)
-
-			notif := tt.p.Slug(tt.args.slug)
-			if err := notif.Start(tt.args.ctx); (err != nil) != tt.wantErr {
-				t.Errorf("Project.Slug(%s).Start() error = %v, wantErr %v", tt.args.slug, err, tt.wantErr)
+			got, err := NewUUID(tt.args.uuid, tt.args.opts...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NewUUID() error = %v, wantErr %v", err, tt.wantErr)
+				return
 			}
-			if err := notif.Success(tt.args.ctx); (err != nil) != tt.wantErr {
-				t.Errorf("Project.Slug(%s).Success() error = %v, wantErr %v", tt.args.slug, err, tt.wantErr)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("NewUUID() = %v, want %v", got, tt.want)
 			}
-			if err := notif.Fail(tt.args.ctx); (err != nil) != tt.wantErr {
-				t.Errorf("Project.Slug(%s).Fail() error = %v, wantErr %v", err, tt.args.slug, tt.wantErr)
+		})
+	}
+}
+
+func TestFromURL(t *testing.T) {
+	type args struct {
+		u    string
+		opts []Option
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    Notifier
+		wantErr bool
+	}{
+		{
+			name: "simple URL",
+			args: args{
+				u:    "https://example.com/foo-bar-123",
+				opts: []Option{},
+			},
+			want: &Check{
+				path: "/foo-bar-123",
+				opts: &options{
+					RootURL:    mustURL("https://example.com"),
+					HTTPClient: defaultOptions().HTTPClient,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "subpaths",
+			args: args{
+				u:    "https://example.com/fuzz/foo-bar-123",
+				opts: []Option{},
+			},
+			want: &Check{
+				path: "/fuzz/foo-bar-123",
+				opts: &options{
+					RootURL:    mustURL("https://example.com"),
+					HTTPClient: defaultOptions().HTTPClient,
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := FromURL(tt.args.u, tt.args.opts...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("FromURL() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("FromURL() = %v, want %v", got, tt.want)
 			}
 		})
 	}

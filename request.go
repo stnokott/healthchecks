@@ -7,34 +7,47 @@ import (
 	"net/http"
 )
 
-func request(ctx context.Context, opts *options, path ...string) error {
+func request(ctx context.Context, opts *options, body io.Reader, path ...string) error {
 	fullPath := opts.RootURL.JoinPath(path...)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", fullPath.String(), nil)
+	req, err := newRequest(ctx, fullPath.String(), body)
+	// required for reliable sequential requests
+	req.Close = true
 	if err != nil {
 		return fmt.Errorf("creating request: %w", err)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := opts.HTTPClient.Do(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("requesting: %w", err)
 	}
 	defer func() {
 		_ = resp.Body.Close()
 	}()
 	// body is required to differentiate between 200s (OK, not found, rate limited etc.).
-	body, err := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		body = []byte("no information")
+		respBody = []byte("no information")
 	}
-	bodyStr := string(body)
+	respStr := string(respBody)
 	// if not 200, we return an error with the response body
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("HTTP response status %d: %s", resp.StatusCode, bodyStr)
+		return fmt.Errorf("HTTP response status %d: %s", resp.StatusCode, respStr)
 	}
 	// if the body is "OK", it's an actual good response
-	if bodyStr != "OK" {
-		return fmt.Errorf("HTTP response not OK: '%s'", bodyStr)
+	if respStr != "OK" {
+		return fmt.Errorf("HTTP response not OK: '%s'", respStr)
 	}
 	return nil
+}
+
+func newRequest(ctx context.Context, path string, body io.Reader) (*http.Request, error) {
+	var method string
+	if body == nil {
+		method = "GET"
+	} else {
+		method = "POST"
+	}
+
+	return http.NewRequestWithContext(ctx, method, path, body)
 }

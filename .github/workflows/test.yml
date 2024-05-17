@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request_review_comment:
     types: [created, edited]
+  schedule:
+    - cron: "0 0 * * *"
 
 jobs:
 
@@ -26,3 +28,19 @@ jobs:
 
       - name: Run tests
         run: go test -v -shuffle=on ./...
+
+  integration_tests:
+    name: Run Integration Tests
+    runs-on: ubuntu-latest
+    env:
+      COMPOSE_FILE: ./test/docker-compose.yml
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4.1.5
+
+      - name: Build and create docker images
+        run: docker compose --profile=test up --no-start
+      
+      - name: Run tests in container
+        run: docker compose --profile=test up --exit-code-from=code --attach=code

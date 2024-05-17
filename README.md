@@ -6,9 +6,7 @@
 
 Allows simple signalling of statuses to [healthchecks.io](https://healthchecks.io).
 
-# Example usage
-
-## Using [official](https://healthchecks.io) endpoint
+## Example usage
 
 ### For projects (a group of multiple checks)
 

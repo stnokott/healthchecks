@@ -2,4 +2,4 @@ module github.com/stnokott/healthchecks
 
 go 1.21.3
 
-require github.com/gorilla/mux v1.8.1
+require go-simpler.org/env v0.12.0
